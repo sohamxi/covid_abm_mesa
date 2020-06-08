@@ -33,6 +33,24 @@ class JobType(Enum):
     UNEMPLOYED = 'u'
     BUSINESS_OWNER = 'b'
 
+class SocialStratum(enum.IntEnum):
+    """Dividing the Population into 5 quintiles """
+
+    Most_Poor = 0
+    Poor = 1
+    Working_class = 2
+    Rich = 3
+    Most_Rich = 4
+
+"""
+Wealth distribution - Lorenz Curve
+By quintile, source: https://www.worldbank.org/en/topic/poverty/lac-equity-lab1/income-inequality/composition-by-quintile
+"""
+
+lorenz_curve = [.04, .08, .13, .2, .55] ## wealth Distribution Based on Percentile (South American Nations)
+share = np.min(lorenz_curve)
+basic_income = np.array(lorenz_curve) / share
+
 # TODO - Need to figure out how to restrict mobility (Lock down, Quarantine)
 
 class Human(Agent):
@@ -52,6 +70,39 @@ class Human(Agent):
         self.infection_time = 0
         self.induced_infections = 0
         self.infected_others = False
+
+        # Economic params
+        self.social_stratum = self.random.choice([0,1,2,3,4])
+        self.wealth = 0
+        self.income = basic_income[self.social_stratum]
+        self.expanditure = 0
+
+    def getAgentIncome(self):
+        """Calculate Agent's Income for the Step"""
+
+        if (self.state != InfectionState.DIED) and (self.severity != InfectionSeverity.Severe) and (self.severity != InfectionSeverity.Hospitalization) :
+            basic_income_temp = basic_income[self.social_stratum]
+            variable_income = 0
+        else:
+            basic_income_temp = 0
+            variable_income = 0
+
+        step_income = basic_income_temp + variable_income
+        return step_income
+
+    def getAgentExpense(self):
+        """Calculate Agent's Expanditure for the step"""
+
+        expense_temp = (self.random.random()**2) * self.wealth
+        return expense_temp
+
+    def update_Wealth(self):
+        """Update Wealth of Agent in Current Step """
+
+        self.income = self.getAgentIncome()
+        self.expanditure = self.getAgentExpense()
+        self.wealth = self.wealth + self.income - self.expanditure
+
 
     def move(self):
         """Move the agent"""
@@ -141,6 +192,7 @@ class Human(Agent):
         self.status()
         self.move()
         self.interact()
+        self.update_Wealth()
 
 
 class InfectionModel(Model):
@@ -174,13 +226,29 @@ class InfectionModel(Model):
         self.R0 = 0
         self.severe = 0
 
+        # Economic params Model related
+        self.total_wealth = 10**4
+        self.wealth_most_poor = 0
+        self.wealth_poor = 0
+        self.wealth_working_class = 0
+        self.wealth_rich = 0
+        self.wealth_most_rich = 0
+
         # Create Data Collecter for Aggregate Values  
         self.datacollector = DataCollector(model_reporters={"infected": 'infected',
                                                             "recovered": 'recovered',
                                                             "susceptible": 'susceptible',
                                                             "dead": 'dead',
                                                             "R0": 'R0',
-                                                            "severe_cases": 'severe'})
+                                                            "severe_cases": 'severe',
+                                                            "Most Poor": 'wealth_most_poor',
+                                                            "Poor": 'wealth_poor',
+                                                            "Middle Class": 'wealth_working_class',
+                                                            "Rich": 'wealth_rich',
+                                                            "Most Rich": 'wealth_most_rich'})
+
+        # Create Data Collecter for Aggregate Wealth Values  
+
         # Create Agents
         for i in range(self.population):
             a = Human(i, self)
@@ -204,8 +272,19 @@ class InfectionModel(Model):
                 else :
                   a.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
             #print(f'Agent Set')
+
+        # Wealth Distributiom
+        # Share the common wealth of 10^4 among the population, according each agent social stratum
+        for quintile in [0, 1, 2, 3, 4]:
+            total = lorenz_curve[quintile] * self.total_wealth
+            qty = max(1.0, np.sum([1 for a in self.schedule.agents if a.social_stratum == quintile and a.age >= 18]))
+            ag_share = total / qty
+            for agent in filter(lambda x: x.social_stratum == quintile and x.age >= 18, self.schedule.agents):
+                agent.wealth = ag_share
+
         self.running= True
         self.datacollector.collect(self)
+        #self.datacollector_wealth.collect(self)
 
     
 
@@ -249,6 +328,34 @@ class InfectionModel(Model):
         # Calculating Dead
         self.dead = len(self.dead_agents)
 
+    def compute_wealth(self):
+        """Compute Wealth of All different Economic Stratum"""
+
+        wealth_most_poor = 0
+        wealth_poor = 0
+        wealth_working_class = 0
+        wealth_rich = 0
+        wealth_most_rich = 0
+
+        for agent in self.schedule.agents:
+
+            if agent.social_stratum == SocialStratum.Most_Poor :
+                wealth_most_poor += agent.wealth
+            elif agent.social_stratum == SocialStratum.Poor :
+                wealth_poor += agent.wealth
+            elif agent.social_stratum == SocialStratum.Working_class:
+                wealth_working_class += agent.wealth
+            elif agent.social_stratum == SocialStratum.Rich:
+                wealth_rich += agent.wealth
+            else :
+                wealth_most_rich += agent.wealth
+
+        self.wealth_most_poor = wealth_most_poor
+        self.wealth_poor = wealth_poor
+        self.wealth_working_class = wealth_working_class
+        self.wealth_rich = wealth_rich
+        self.wealth_most_rich = wealth_most_rich
+
     
    
     def get_recovery_time(self):
@@ -258,7 +365,9 @@ class InfectionModel(Model):
 
         self.schedule.step()
         self.compute()
+        self.compute_wealth()
         self.datacollector.collect(self)
+        #self.datacollector_wealth.collect(self)
     
     def run_model(self, n):
         for i in range(n):
