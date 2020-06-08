@@ -82,7 +82,7 @@ class Human(Agent):
 
         if (self.state != InfectionState.DIED) and (self.severity != InfectionSeverity.Severe) and (self.severity != InfectionSeverity.Hospitalization) :
             basic_income_temp = basic_income[self.social_stratum]
-            variable_income = 0
+            variable_income = self.random.random() *self.random.random()* basic_income[self.social_stratum]
         else:
             basic_income_temp = 0
             variable_income = 0
@@ -93,7 +93,7 @@ class Human(Agent):
     def getAgentExpense(self):
         """Calculate Agent's Expanditure for the step"""
 
-        expense_temp = (self.random.random()**2) * self.wealth
+        expense_temp = self.random.random() * basic_income[self.social_stratum]
         return expense_temp
 
     def update_Wealth(self):
@@ -163,6 +163,7 @@ class Human(Agent):
               other.state = InfectionState.INFECTED
               other.infection_time = self.model.schedule.time
               other.recovery_time = self.model.get_recovery_time()
+              print(f'New Person Infected, recovery rate : {other.recovery_time}')
               self.induced_infections +=1
               self.infected_others = True
               # set Severity
@@ -199,7 +200,7 @@ class InfectionModel(Model):
 
     def __init__(self, N=10, width=10, height=10, ptrans = 0.25, reinfection_rate = 0.00,  severe_perc =0.18,
                  progression_period = 3, progression_sd = 2, death_rate = 0.0193, recovery_days = 21,
-                 recovery_sd = 7, initial_infected_perc=0.1, initial_immune_perc = 0.01):
+                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01):
         self.population = N
         #self.model = model
         self.ptrans = ptrans
@@ -228,11 +229,11 @@ class InfectionModel(Model):
 
         # Economic params Model related
         self.total_wealth = 10**4
-        self.wealth_most_poor = 0
-        self.wealth_poor = 0
-        self.wealth_working_class = 0
-        self.wealth_rich = 0
-        self.wealth_most_rich = 0
+        self.wealth_most_poor = lorenz_curve[0] * self.total_wealth
+        self.wealth_poor = lorenz_curve[1] * self.total_wealth
+        self.wealth_working_class = lorenz_curve[2] * self.total_wealth
+        self.wealth_rich = lorenz_curve[3] * self.total_wealth
+        self.wealth_most_rich = lorenz_curve[4] * self.total_wealth
 
         # Create Data Collecter for Aggregate Values  
         self.datacollector = DataCollector(model_reporters={"infected": 'infected',
@@ -372,3 +373,4 @@ class InfectionModel(Model):
     def run_model(self, n):
         for i in range(n):
             self.step()
+        self.running= False

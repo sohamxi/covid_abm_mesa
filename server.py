@@ -8,17 +8,22 @@ from model import InfectionModel, InfectionState
 def agent_portrayal(agent):
     portrayal = {"Shape": "circle", "Filled": "true", "r": 0.5}
 
-    if agent.state == 1:
-        portrayal["Color"] = "#008000"
+    if agent.state == 1: 
+        portrayal["Color"] = "#fa0c00" # Red:Infected
         portrayal["Layer"] = 0
+        portrayal["r"] = 0.3
+    elif agent.state == 0:
+        portrayal["Color"] = "#008000" #Green: Susceptible 
+        portrayal["Layer"] = 0
+        portrayal["r"] = 0.5
     elif agent.state == 2:
-        portrayal["Color"] = "grey"
-        portrayal["Layer"] = 1
-        portrayal["r"] = 0.2
+        portrayal["Color"] = "grey" # Grey:Recovered 
+        portrayal["Layer"] = 0
+        portrayal["r"] = 0.5
     else:
-        portrayal["Color"] = "red"
-        portrayal["Layer"] = 1
-        portrayal["r"] = 0.2
+        portrayal["Color"] = '#121010' #Black: Dead
+        portrayal["Layer"] = 0
+        portrayal["r"] = 0.5
     return portrayal
 
 
@@ -30,12 +35,14 @@ class MyTextElement(TextElement):
         infected = model.infected
         r_o = model.R0
         recovered = model.recovered
+        dead = model.dead
+        susceptible = model.susceptible
 
-        return "Number of Infected cases: {}<br>Number of Recovered cases: {}<br>R0 value: {}".format(
-            infected, recovered, r_o
+        return "Number Suscpetible of  cases: {}<br>Number of Infected cases: {}<br>Number of Recovered cases: {}<br>Dead: {}<br>R0 value: {}".format(
+            susceptible,infected, recovered,dead, r_o
         )
 
-canvas_element = CanvasGrid(agent_portrayal, 20, 20, 500, 500)
+canvas_element = CanvasGrid(agent_portrayal, 10, 10, 500, 500)
 text_element = MyTextElement()
 chart = ChartModule(
     [
@@ -63,14 +70,14 @@ model_params = {
         "Number of agents",
         100,
         2,
-        200,
+        500,
         1,
         description="Choose how many agents to include in the model",
     ),
-    "width" : 20,
-    "height" : 20,
+    "width" : 10,
+    "height" : 10,
     "ptrans": UserSettableParameter("slider", "Transmission Probability", 0.1,0.2, 1.0, 0.1),
-    "death_rate": UserSettableParameter("slider", "Death Rate", 0.01, 0.00, 1.0, 0.05)
+    "death_rate": UserSettableParameter("slider", "Death Rate", 0.0193, 0.005, 0.4, 0.001)
 }
 
 server = ModularServer(
