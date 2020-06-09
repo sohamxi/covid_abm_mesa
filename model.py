@@ -68,9 +68,9 @@ class Human(Agent):
         self.infection_time = 0
         self.induced_infections = 0
         self.infected_others = False
-        self.symptoms = self.random.normalvariate(10,4)
+        self.symptoms = int(self.random.normalvariate(10,4))
         # Economic params
-        self.social_stratum = self.random.choice([0,1,2,3,4])
+        self.social_stratum = np.random.choice([0,1,2,3,4])
         self.wealth = 0
         self.income = basic_income[self.social_stratum]
         self.expanditure = 0
@@ -78,14 +78,22 @@ class Human(Agent):
     def getAgentIncome(self):
         """Calculate Agent's Income for the Step"""
 
-        if (self.state != InfectionState.DIED) and (self.severity != InfectionSeverity.Severe):
-            basic_income_temp = basic_income[self.social_stratum]
-            variable_income = self.random.random() *self.random.random()* basic_income[self.social_stratum]
+        step_income =0
+        basic_income_temp = 0
+        variable_income_temp = 0
+
+        if (self.state != InfectionState.DIED) and (self.severity == InfectionSeverity.Asymptomatic) :
+            
+            mov_prob = self.model.mov_prob
+            move_today = np.random.choice([True,False],p=[mov_prob,1-mov_prob])
+            if move_today:
+                basic_income_temp = basic_income[self.social_stratum]
+                variable_income_temp = self.random.random() *self.random.random()* basic_income[self.social_stratum]
         else:
             basic_income_temp = 0
-            variable_income = 0
+            variable_income_temp = 0
 
-        step_income = basic_income_temp + variable_income
+        step_income = basic_income_temp + variable_income_temp
         return step_income
 
     def getAgentExpense(self):
@@ -130,11 +138,14 @@ class Human(Agent):
                 self.model.schedule.remove(self)
                 self.model.dead_agents.append(self.unique_id)
 
-            time_passed = self.model.schedule.time-self.infection_time
+            time_passed = self.model.schedule.time - self.infection_time
             if time_passed >= self.symptoms:
                 self.severity = InfectionSeverity.Quarantined
-            if time_passed >= self.recovery_time:          
+                #print(f'Agent {self.unique_id} has been put to quarentine')
+            if time_passed >= self.recovery_time:
+                print(f'Agent {self.unique_id} recovered with Time Passed:{time_passed} & Assigned time for recovery:{self.recovery_time}')          
                 self.state = InfectionState.RECOVERED
+                self.severity = InfectionSeverity.Asymptomatic
         elif self.state == InfectionState.RECOVERED:
             self.severity = InfectionSeverity.Asymptomatic
     
@@ -143,16 +154,22 @@ class Human(Agent):
     def interact(self):
         """Interaction with other Agents"""
 
-        neighbors = self.model.grid.get_cell_list_contents([self.pos])
+        if self.severity == InfectionSeverity.Asymptomatic:
+            neighbors = self.model.grid.get_cell_list_contents([self.pos])
 
-        if len(neighbors)==0:
-           print (self.unique_id + " is lonely")
-        else :
-          for other in neighbors:
-            if other.state == InfectionState.DIED:
-              pass
-            else:
-              self.infect(other)
+            if len(neighbors)==0:
+                print (self.unique_id + " is lonely")
+            else :
+                for other in neighbors:
+                    if other.state == InfectionState.DIED:
+                        pass
+                    else:
+                        self.infect(other)
+
+        elif self.severity == InfectionSeverity.Quarantined:
+            print(f'Agent {self.unique_id} is Quarantined with Severity {self.severity}')
+        else:
+            print(f'Agent {self.unique_id} is Hospitalised with Severity {self.severity}')
 
 
 
@@ -235,6 +252,7 @@ class InfectionModel(Model):
         self.infected = 0
         self.R0 = 0
         self.severe = 0
+        self.exposed = 0
 
         # Economic params Model related
         self.total_wealth = 10**4
@@ -254,6 +272,7 @@ class InfectionModel(Model):
         self.datacollector = DataCollector(model_reporters={"infected": 'infected',
                                                             "recovered": 'recovered',
                                                             "susceptible": 'susceptible',
+                                                            "exposed": 'exposed',
                                                             "dead": 'dead',
                                                             "R0": 'R0',
                                                             "severe_cases": 'severe',
@@ -308,6 +327,7 @@ class InfectionModel(Model):
     def compute(self):
         R0 = 0        
         susceptible = 0
+        exposed = 0
         dead = 0
         recovered = 0
         infected = 0
@@ -333,12 +353,16 @@ class InfectionModel(Model):
               severe += 1
           elif agent.state == InfectionState.SUSCEPTIBLE:
             susceptible += 1
+          elif agent.state == InfectionState.EXPOSED :
+            exposed += 1
+
 
         # Updating Model params
         self.recovered = recovered
         self.infected = infected
         self.severe = severe
         self.susceptible = susceptible
+        self.exposed = exposed
 
 
         # Calculating Dead
@@ -383,7 +407,13 @@ class InfectionModel(Model):
             self.mov_prob = 0.1
 
     def apply_quarantine(self):
-        self.agent.symptoms=0
+        """Show Symptoms for all infected agents immediately"""
+
+        for agent in self.schedule.agents:
+            if agent.state == InfectionState.INFECTED:
+                agent.symptoms =0
+                print(f'Agent with id: {agent.unique_id} will be shown symptoms in:{agent.symptoms}')
+        #self.agent.symptoms=0
 
     def check_for_intervention(self):
         if self.intervention1:
