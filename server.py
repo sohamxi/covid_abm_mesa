@@ -64,6 +64,7 @@ chart2 = ChartModule(
     ], data_collector_name="datacollector"
 )
 
+
 model_params = {
     "N": UserSettableParameter(
         "slider",
@@ -77,7 +78,11 @@ model_params = {
     "width" : 10,
     "height" : 10,
     "ptrans": UserSettableParameter("slider", "Transmission Probability", 0.1,0.2, 1.0, 0.1),
-    "death_rate": UserSettableParameter("slider", "Death Rate", 0.0193, 0.005, 0.4, 0.001)
+    "death_rate": UserSettableParameter("slider", "Death Rate", 0.0193, 0.005, 0.4, 0.001),
+    "lockdown" : UserSettableParameter("checkbox", "Lockdown", False),
+    "saq" : UserSettableParameter("checkbox", "Screening and Quarantine", False),
+    "ipa" : UserSettableParameter("checkbox","Increase Public Awareness", False),
+    "mm" : UserSettableParameter("checkbox","Mandatory Masks", False)
 }
 
 server = ModularServer(

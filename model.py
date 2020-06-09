@@ -21,9 +21,7 @@ class InfectionSeverity(Enum):
     The Severity of the Infected agents
     """
     Asymptomatic = 'a'
-    Exposed = 'e'
-    #Quarantined= 'q'
-    Hospitalization = 'h'
+    Quarantined= 'q'
     Severe = 's'
 
 class JobType(Enum):
@@ -63,14 +61,14 @@ class Human(Agent):
         self.age = self.random.normalvariate(20,40)
         #print(f'Age Set')       
         self.state = InfectionState.SUSCEPTIBLE
-        self.severity = InfectionSeverity.Exposed
+        self.severity = InfectionSeverity.Asymptomatic
         # TODO - Job type to affect Income and thus wealth
         #self.jobtype = JobType.WHITE_COLLAR
         #self.jobtype = np.random.choice([JobType.GOVERNMENT,JobType.BLUE_COLLAR,JobType.WHITE_COLLARJobType.UNEMPLOYED,JobType.BUSINESS_OWNER]) #p=[0.2,0.2,0.2,0.2,0.2] (Optional Based on Demography)
         self.infection_time = 0
         self.induced_infections = 0
         self.infected_others = False
-
+        self.symptoms = self.random.normalvariate(10,4)
         # Economic params
         self.social_stratum = self.random.choice([0,1,2,3,4])
         self.wealth = 0
@@ -80,7 +78,7 @@ class Human(Agent):
     def getAgentIncome(self):
         """Calculate Agent's Income for the Step"""
 
-        if (self.state != InfectionState.DIED) and (self.severity != InfectionSeverity.Severe) and (self.severity != InfectionSeverity.Hospitalization) :
+        if (self.state != InfectionState.DIED) and (self.severity != InfectionSeverity.Severe):
             basic_income_temp = basic_income[self.social_stratum]
             variable_income = self.random.random() *self.random.random()* basic_income[self.social_stratum]
         else:
@@ -106,13 +104,13 @@ class Human(Agent):
 
     def move(self):
         """Move the agent"""
-
-        possible_steps = self.model.grid.get_neighborhood(
-            self.pos,
-            moore=True,
-            include_center=True)
-        new_position = self.random.choice(possible_steps)
-        self.model.grid.move_agent(self, new_position)
+        if self.severity == InfectionSeverity.Asymptomatic:
+            possible_steps = self.model.grid.get_neighborhood(
+                self.pos,
+                moore=True,
+                include_center=True)
+            new_position = self.random.choice(possible_steps)
+            self.model.grid.move_agent(self, new_position)
 
     
     
@@ -130,9 +128,12 @@ class Human(Agent):
                 self.model.dead_agents.append(self.unique_id)
 
             time_passed = self.model.schedule.time-self.infection_time
+            if time_passed >= self.symptoms:
+                self.severity = InfectionSeverity.Quarantined
             if time_passed >= self.recovery_time:          
                 self.state = InfectionState.RECOVERED
-
+        elif self.state == InfectionState.RECOVERED:
+            self.severity = InfectionSeverity.Asymptomatic
     
     
     
@@ -169,8 +170,8 @@ class Human(Agent):
               # set Severity
               if self.random.random() < self.model.severe_perc:
                 other.severity = InfectionSeverity.Severe
-              else :
-                other.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
+            #   else :
+            #     other.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
 
 
           # Reinfection Scenario
@@ -185,8 +186,8 @@ class Human(Agent):
               # set Severity
               if self.random.random() < self.model.severe_perc:
                 other.severity = InfectionSeverity.Severe
-              else :
-                other.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
+            #   else :
+            #     other.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
 
 
     def step(self):
@@ -200,7 +201,7 @@ class InfectionModel(Model):
 
     def __init__(self, N=10, width=10, height=10, ptrans = 0.25, reinfection_rate = 0.00,  severe_perc =0.18,
                  progression_period = 3, progression_sd = 2, death_rate = 0.0193, recovery_days = 21,
-                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01):
+                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01, lockdown = False, saq = False, ipa = False, mm= False):
         self.population = N
         #self.model = model
         self.ptrans = ptrans
@@ -234,6 +235,12 @@ class InfectionModel(Model):
         self.wealth_working_class = lorenz_curve[2] * self.total_wealth
         self.wealth_rich = lorenz_curve[3] * self.total_wealth
         self.wealth_most_rich = lorenz_curve[4] * self.total_wealth
+
+        # Making Provision for Interventions
+        self.intervention1 = lockdown
+        self.intervention2 = saq
+        self.intervention3 = ipa
+        self.intervention4 = mm
 
         # Create Data Collecter for Aggregate Values  
         self.datacollector = DataCollector(model_reporters={"infected": 'infected',
@@ -270,8 +277,8 @@ class InfectionModel(Model):
                 severity = np.random.choice([0,1], p=[(1-self.severe_perc), self.severe_perc])
                 if severity == 1:
                   a.severity = InfectionSeverity.Severe
-                else :
-                  a.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
+                # else :
+                #   a.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
             #print(f'Agent Set')
 
         # Wealth Distributiom
@@ -362,8 +369,25 @@ class InfectionModel(Model):
     def get_recovery_time(self):
         return int(self.random.normalvariate(self.recovery_days,self.recovery_sd))
 
-    def step(self):
 
+    def apply_lockdown(self):
+        pass
+
+    def apply_quarantine(self):
+        pass
+
+    def check_for_intervention(self):
+        if self.intervention1:
+            self.apply_lockdown()
+        if self.intervention2:
+            self.apply_quarantine()
+        if self.intervention3:
+            self.ptrans *= 0.3 
+        if self.intervention4:
+            self.ptrans *= 0.2
+
+    def step(self):
+        self.check_for_intervention()
         self.schedule.step()
         self.compute()
         self.compute_wealth()
