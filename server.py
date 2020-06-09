@@ -8,16 +8,20 @@ from model import InfectionModel, InfectionState
 def agent_portrayal(agent):
     portrayal = {"Shape": "circle", "Filled": "true", "r": 0.5}
 
-    if agent.state == 1: 
-        portrayal["Color"] = "#fa0c00" # Red:Infected
-        portrayal["Layer"] = 0
-        portrayal["r"] = 0.3
-    elif agent.state == 0:
-        portrayal["Color"] = "#008000" #Green: Susceptible 
+    if agent.state == 0: 
+        portrayal["Color"] = "#008000" #Green: Susceptible  # Red:Infected #fa0c00
         portrayal["Layer"] = 0
         portrayal["r"] = 0.5
+    elif agent.state == 4:
+        portrayal["Color"] = "#fcf00a" #Yellow: Exposed 
+        portrayal["Layer"] = 0
+        portrayal["r"] = 0.5
+    elif agent.state == 1:
+        portrayal["Color"] = "#fa0c00" #Red: Infected 
+        portrayal["Layer"] = 1
+        portrayal["r"] = 0.3
     elif agent.state == 2:
-        portrayal["Color"] = "grey" # Grey:Recovered 
+        portrayal["Color"] = "#b5551d" # Orange:Recovered 
         portrayal["Layer"] = 0
         portrayal["r"] = 0.5
     else:
@@ -37,20 +41,22 @@ class MyTextElement(TextElement):
         recovered = model.recovered
         dead = model.dead
         susceptible = model.susceptible
+        exposed = model.exposed
 
-        return "Number Suscpetible of  cases: {}<br>Number of Infected cases: {}<br>Number of Recovered cases: {}<br>Dead: {}<br>R0 value: {}".format(
-            susceptible,infected, recovered,dead, r_o
+        return "Number Suscpetible of  cases: {}<br>Number Exposed of Citizen: {}<br>Number of Infected cases: {}<br>Number of Recovered cases: {}<br>Dead: {}<br>R0 value: {}".format(
+            susceptible,exposed, infected, recovered,dead, r_o
         )
 
 canvas_element = CanvasGrid(agent_portrayal, 10, 10, 500, 500)
 text_element = MyTextElement()
 chart = ChartModule(
     [
+        {"Label": "susceptible", "Color": "#2cdb23"},
+        {"Label": "exposed", "Color": "#fcf00a"},
         {"Label": "infected", "Color": "#FF0000"},
-        {"Label": "susceptible", "Color": "#f5a442"},
-        {"Label": "recovered", "Color": "#14e322"},
-        {"Label": "dead", "Color": "#808880"},
-        {"Label": "severe_cases", "Color": '#3291a8'}
+        {"Label": "recovered", "Color": "#b5551d"},
+        {"Label": "dead", "Color": "#0f0f0e"},
+        {"Label": "severe_cases", "Color": '#99928e'}
     ], data_collector_name="datacollector"
 )
 
