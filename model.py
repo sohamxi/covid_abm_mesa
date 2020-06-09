@@ -105,12 +105,15 @@ class Human(Agent):
     def move(self):
         """Move the agent"""
         if self.severity == InfectionSeverity.Asymptomatic:
-            possible_steps = self.model.grid.get_neighborhood(
-                self.pos,
-                moore=True,
-                include_center=True)
-            new_position = self.random.choice(possible_steps)
-            self.model.grid.move_agent(self, new_position)
+            mov_prob = self.model.mov_prob
+            move_today = np.random.choice([True,False],p=[mov_prob,1-mov_prob])
+            if move_today:
+                possible_steps = self.model.grid.get_neighborhood(
+                    self.pos,
+                    moore=True,
+                    include_center=True)
+                new_position = self.random.choice(possible_steps)
+                self.model.grid.move_agent(self, new_position)
 
     
     
@@ -159,17 +162,19 @@ class Human(Agent):
 
         if self.state == InfectionState.INFECTED :
           # check other Agent is Susceptible or Recovered : Susceptible
-          if other.state == InfectionState.SUSCEPTIBLE:
+          if other.state == InfectionState.SUSCEPTIBLE or other.state == InfectionState.EXPOSED:
             if self.random.random() < self.model.ptrans:
               other.state = InfectionState.INFECTED
               other.infection_time = self.model.schedule.time
               other.recovery_time = self.model.get_recovery_time()
-              print(f'New Person Infected, recovery rate : {other.recovery_time}')
+              print(f'New Person Infected, recovery rate : {other.recovery_time} and time till symptom : {other.symptoms}') 
               self.induced_infections +=1
               self.infected_others = True
               # set Severity
               if self.random.random() < self.model.severe_perc:
                 other.severity = InfectionSeverity.Severe
+            else:
+                other.state = InfectionState.EXPOSED
             #   else :
             #     other.severity = np.random.choice([InfectionSeverity.Asymptomatic,InfectionSeverity.Hospitalization])
 
@@ -201,12 +206,15 @@ class InfectionModel(Model):
 
     def __init__(self, N=10, width=10, height=10, ptrans = 0.25, reinfection_rate = 0.00,  severe_perc =0.18,
                  progression_period = 3, progression_sd = 2, death_rate = 0.0193, recovery_days = 21,
-                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01, lockdown = False, saq = False, ipa = False, mm= False):
+                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01, 
+                 lockdown = False, saq = False, ipa = False, mm= False, days_till_lockdown = 7,
+                 lockdown_period = 40
+                 ):
         self.population = N
         #self.model = model
         self.ptrans = ptrans
         self.reinfection_rate = reinfection_rate
-        
+        self.mov_prob = 1
         self.progression_period = progression_period
         self.progression_sd = progression_sd
         self.death_rate = death_rate
@@ -371,10 +379,11 @@ class InfectionModel(Model):
 
 
     def apply_lockdown(self):
-        pass
+        if self.infected > 10: 
+            self.mov_prob = 0.1
 
     def apply_quarantine(self):
-        pass
+        self.agent.symptoms=0
 
     def check_for_intervention(self):
         if self.intervention1:
