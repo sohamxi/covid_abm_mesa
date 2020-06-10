@@ -129,21 +129,46 @@ class Human(Agent):
     def status(self):
         """Check infection status"""
 
-        if self.state == InfectionState.INFECTED:     
-            drate = self.model.death_rate
-            alive = np.random.choice([0,1], p=[drate,1-drate])
-            # Check wheather Alive, if Dead remove from scheduler
-            if alive == 0:
-                self.state = InfectionState.DIED
-                self.model.schedule.remove(self)
-                self.model.dead_agents.append(self.unique_id)
+        if self.state == InfectionState.INFECTED:
 
+            
+
+            ## Some of the severe people die     
+            if self.severity == InfectionSeverity.Severe:
+                cond_drate = self.model.death_rate/ self.model.severe_perc
+                if self.recovery_time <= 1:
+                    self.recovery_time =1
+                drate = cond_drate/self.recovery_time
+                #if drate >= 1:
+                print(f'death rate is too high : {drate} Agent:{self.unique_id}')
+                #drate = self.model.death_rate/ self.model.severe_perc
+                #print(f'For Agent : {self.unique_id} Death Rate:{drate}')
+                alive = np.random.choice([0,1], p=[drate,1-drate])
+                # Check wheather Alive, if Dead remove from scheduler
+                if alive == 0:
+                    self.state = InfectionState.DIED
+                    self.model.schedule.remove(self)
+                    self.model.dead_agents.append(self.unique_id)
+            
+            ## Some of Infected but Asymptomatic people become Severe
+            if self.severity == InfectionSeverity.Asymptomatic or self.severity ==InfectionSeverity.Quarantined:
+                ## TODO: Change probability for Asymptomatic & Quarantine
+                turn_severe_prob = self.model.severe_perc/max(1, self.recovery_time)
+                #print(f'Might turn severe with probability {turn_severe_prob}')
+                turn_severe_today = np.random.choice([True,False],p=[turn_severe_prob,1-turn_severe_prob])
+                if turn_severe_today:
+                    self.severity = InfectionSeverity.Severe
+                    print(f'Agent {self.unique_id} has turned Severe with Proba: {turn_severe_prob}')
+
+            #  People Passed due time show symptoms and Put to Quarantine
             time_passed = self.model.schedule.time - self.infection_time
             if time_passed >= self.symptoms:
                 self.severity = InfectionSeverity.Quarantined
                 #print(f'Agent {self.unique_id} has been put to quarentine')
+            
+            #People passed recovery date recovered 
             if time_passed >= self.recovery_time:
-                print(f'Agent {self.unique_id} recovered with Time Passed:{time_passed} & Assigned time for recovery:{self.recovery_time}')          
+                #print(f'Agent {self.unique_id} recovered with Time Passed:{time_passed} & Assigned time for recovery:{self.recovery_time}')          
                 self.state = InfectionState.RECOVERED
                 self.severity = InfectionSeverity.Asymptomatic
         elif self.state == InfectionState.RECOVERED:
@@ -167,9 +192,11 @@ class Human(Agent):
                         self.infect(other)
 
         elif self.severity == InfectionSeverity.Quarantined:
-            print(f'Agent {self.unique_id} is Quarantined with Severity {self.severity}')
+            #print(f'Agent {self.unique_id} is Quarantined with Severity {self.severity}')
+            pass
         else:
-            print(f'Agent {self.unique_id} is Hospitalised with Severity {self.severity}')
+            #print(f'Agent {self.unique_id} is Hospitalised with Severity {self.severity}')
+            pass
 
 
 
@@ -221,26 +248,23 @@ class Human(Agent):
 class InfectionModel(Model):
 
     def __init__(self, N=10, width=10, height=10, ptrans = 0.25, reinfection_rate = 0.00,  severe_perc =0.18,
-                 progression_period = 3, progression_sd = 2, death_rate = 0.0193, recovery_days = 21,
-                 recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01, 
-                 lockdown = False, saq = False, ipa = False, mm= False, days_till_lockdown = 7,
-                 lockdown_period = 40, hospital_capacity = 0.01
+                  death_rate = 0.0193, recovery_days = 21,
+                 recovery_sd = 7, initial_infected_perc=0.1,  
+                 lockdown = False, saq = False, ipa = False, mm= False, hospital_capacity = 0.01
                  ):
         self.population = N
         #self.model = model
         self.ptrans = ptrans
         self.reinfection_rate = reinfection_rate
         self.mov_prob = 1
-        self.progression_period = progression_period
-        self.progression_sd = progression_sd
         self.death_rate = death_rate
+        self.initial_death_rate = death_rate
         self.recovery_days = recovery_days
         self.recovery_sd = recovery_sd
         self.dead_agents = []
 
         self.severe_perc = severe_perc
-        self.initial_infected_perc = initial_infected_perc
-        self.initial_immune_perc = initial_immune_perc
+        self.initial_infected_perc = initial_infected_perc        
         self.schedule = RandomActivation(self)
         self.grid = MultiGrid(width, height, True)
         
@@ -272,6 +296,7 @@ class InfectionModel(Model):
         self.intervention2 = saq
         self.intervention3 = ipa
         self.intervention4 = mm
+        print(f'Intervention Sattus: \n Lockdown:{self.intervention1}; Screening:{self.intervention2}, Public Awareness:{self.intervention3}; Masks:{self.intervention4}')
 
         # Create Data Collecter for Aggregate Values  
         self.datacollector = DataCollector(model_reporters={"infected": 'percentage_infected',
@@ -338,6 +363,7 @@ class InfectionModel(Model):
         recovered = 0
         infected = 0
         severe=0
+        infection_array =[]
 
         #Calculating R0
         for agent in self.schedule.agents:
@@ -346,9 +372,9 @@ class InfectionModel(Model):
             if induced_infections == 0:
                 induced_infections = [0]
             # induced_infections_ = [value for value in induced_infections if value != 0]
-            infection_array = np.array(induced_infections)
-            R0 = np.average(infection_array)
-            self.R0 = R0
+            infection_array.append(induced_infections)
+            
+            
 
           # Calculating Susceptible, Infected, Recoverd Agents
           if agent.state == InfectionState.RECOVERED:
@@ -364,11 +390,21 @@ class InfectionModel(Model):
 
 
         # Updating Model params
+        #print(infection_array)
+        R0 = np.average(infection_array)
+        self.R0 = R0
         self.recovered = recovered
         self.infected = infected
         self.severe = severe
         self.susceptible = susceptible
         self.exposed = exposed
+        if self.severe >= self.hospital_capacity:
+            # If Severity exceeds Healthcare Capaity Death Rate will increase
+            self.death_rate = self.initial_death_rate * 3
+            print(f'Death rate updated to :{self.death_rate}')
+        else:
+            self.death_rate = self.initial_death_rate
+            print(f'Death rate updated to :{self.death_rate}')
         
 
         # Calculating Dead
@@ -417,15 +453,17 @@ class InfectionModel(Model):
 
 
     def apply_lockdown(self):
-        if self.infected > 10: 
+        if self.infected >= self.population *0.1: 
             self.mov_prob = 0.1
+            print(f'#of Infecetd: {self.infected} LockDown Imposed!!!')
 
     def apply_quarantine(self):
         """Show Symptoms for all infected agents immediately"""
+        ### TODO: Should it apply on each steps
 
         for agent in self.schedule.agents:
             if agent.state == InfectionState.INFECTED:
-                agent.symptoms =0
+                agent.symptoms = 6*0.5 # min(symptoms)*0.5
                 print(f'Agent with id: {agent.unique_id} will be shown symptoms in:{agent.symptoms}')
         #self.agent.symptoms=0
 
