@@ -218,14 +218,13 @@ class Human(Agent):
         self.interact()
         self.update_Wealth()
 
-
 class InfectionModel(Model):
 
     def __init__(self, N=10, width=10, height=10, ptrans = 0.25, reinfection_rate = 0.00,  severe_perc =0.18,
                  progression_period = 3, progression_sd = 2, death_rate = 0.0193, recovery_days = 21,
                  recovery_sd = 7, initial_infected_perc=0.2, initial_immune_perc = 0.01, 
                  lockdown = False, saq = False, ipa = False, mm= False, days_till_lockdown = 7,
-                 lockdown_period = 40
+                 lockdown_period = 40, hospital_capacity = 0.01
                  ):
         self.population = N
         #self.model = model
@@ -245,7 +244,7 @@ class InfectionModel(Model):
         self.schedule = RandomActivation(self)
         self.grid = MultiGrid(width, height, True)
         
-
+        self.hospital_capacity = hospital_capacity*self.population
         self.susceptible = self.population
         self.dead = 0
         self.recovered = 0
@@ -253,7 +252,13 @@ class InfectionModel(Model):
         self.R0 = 0
         self.severe = 0
         self.exposed = 0
-
+        # Calculating percentages
+        self.percentage_susceptible = (self.susceptible/self.population)*100
+        self.percentage_dead = (self.dead/self.population)*100
+        self.percentage_recovered = (self.recovered/self.population)*100
+        self.percentage_infected = (self.infected/self.population)*100
+        self.percentage_exposed = (self.exposed/self.population)*100
+        self.percentage_severe = (self.severe/self.population)*100
         # Economic params Model related
         self.total_wealth = 10**4
         self.wealth_most_poor = lorenz_curve[0] * self.total_wealth
@@ -269,12 +274,13 @@ class InfectionModel(Model):
         self.intervention4 = mm
 
         # Create Data Collecter for Aggregate Values  
-        self.datacollector = DataCollector(model_reporters={"infected": 'infected',
-                                                            "recovered": 'recovered',
-                                                            "susceptible": 'susceptible',
-                                                            "exposed": 'exposed',
+        self.datacollector = DataCollector(model_reporters={"infected": 'percentage_infected',
+                                                            "recovered": 'percentage_recovered',
+                                                            "susceptible": 'percentage_susceptible',
+                                                            "exposed": 'percentage_exposed',
                                                             "dead": 'dead',
                                                             "R0": 'R0',
+                                                            "hospital" : "hospital_capacity",
                                                             "severe_cases": 'severe',
                                                             "Most Poor": 'wealth_most_poor',
                                                             "Poor": 'wealth_poor',
@@ -363,10 +369,18 @@ class InfectionModel(Model):
         self.severe = severe
         self.susceptible = susceptible
         self.exposed = exposed
-
+        
 
         # Calculating Dead
         self.dead = len(self.dead_agents)
+
+        # Calculating percentages
+        self.percentage_susceptible = (self.susceptible/self.population)*100
+        self.percentage_dead = (self.dead/self.population)*100
+        self.percentage_recovered = (self.recovered/self.population)*100
+        self.percentage_infected = (self.infected/self.population)*100
+        self.percentage_exposed = (self.exposed/self.population)*100
+        self.percentage_severe = (self.severe/self.population)*100
 
     def compute_wealth(self):
         """Compute Wealth of All different Economic Stratum"""
@@ -432,8 +446,10 @@ class InfectionModel(Model):
         self.compute_wealth()
         self.datacollector.collect(self)
         #self.datacollector_wealth.collect(self)
-    
-    def run_model(self, n):
-        for i in range(n):
-            self.step()
-        self.running= False
+        if self.schedule.time == 60:
+            self.running = False
+
+    # def run_model(self, n):
+    #     for i in range(n):
+    #         self.step()
+    #     self.running= False

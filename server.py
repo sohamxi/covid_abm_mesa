@@ -9,25 +9,25 @@ def agent_portrayal(agent):
     portrayal = {"Shape": "circle", "Filled": "true", "r": 0.5}
 
     if agent.state == 0: 
-        portrayal["Color"] = "#008000" #Green: Susceptible  # Red:Infected #fa0c00
+        portrayal["Color"] = "#b5551d" #Orange: Susceptible
         portrayal["Layer"] = 0
-        portrayal["r"] = 0.5
+        portrayal["r"] = 0.9
     elif agent.state == 4:
         portrayal["Color"] = "#fcf00a" #Yellow: Exposed 
-        portrayal["Layer"] = 0
-        portrayal["r"] = 0.5
+        portrayal["Layer"] = 1
+        portrayal["r"] = 0.7
     elif agent.state == 1:
         portrayal["Color"] = "#fa0c00" #Red: Infected 
-        portrayal["Layer"] = 1
-        portrayal["r"] = 0.3
-    elif agent.state == 2:
-        portrayal["Color"] = "#b5551d" # Orange:Recovered 
-        portrayal["Layer"] = 0
+        portrayal["Layer"] = 2
         portrayal["r"] = 0.5
+    elif agent.state == 2:
+        portrayal["Color"] = "#008000" # Green:Recovered 
+        portrayal["Layer"] = 3
+        portrayal["r"] = 0.3
     else:
         portrayal["Color"] = '#121010' #Black: Dead
-        portrayal["Layer"] = 0
-        portrayal["r"] = 0.5
+        portrayal["Layer"] = 4
+        portrayal["r"] = 0.1
     return portrayal
 
 
@@ -51,22 +51,28 @@ canvas_element = CanvasGrid(agent_portrayal, 10, 10, 500, 500)
 text_element = MyTextElement()
 chart = ChartModule(
     [
-        {"Label": "susceptible", "Color": "#2cdb23"},
+        {"Label": "susceptible", "Color": "#b5551d"},
         {"Label": "exposed", "Color": "#fcf00a"},
-        {"Label": "infected", "Color": "#FF0000"},
-        {"Label": "recovered", "Color": "#b5551d"},
-        {"Label": "dead", "Color": "#0f0f0e"},
-        {"Label": "severe_cases", "Color": '#99928e'}
+        {"Label": "infected", "Color": "#fa0c00"},
+        {"Label": "recovered", "Color": "#008000"}
     ], data_collector_name="datacollector"
 )
 
-chart2 = ChartModule(
+chart3 = ChartModule(
     [
         {"Label": "Most Poor", "Color": "#FF0000"},
         {"Label": "Poor", "Color": "#f5a442"},
         {"Label": "Middle Class", "Color": "#14e322"},
         {"Label": "Rich", "Color": "#808880"},
         {"Label": "Most Rich", "Color": '#3291a8'}
+    ], data_collector_name="datacollector"
+)
+
+chart2 = ChartModule(
+    [
+        {"Label": "dead", "Color": "#121010"},
+        {"Label": "severe_cases", "Color": '#99928e'},
+        {"Label": "hospital", "Color": '#b40ec7'}
     ], data_collector_name="datacollector"
 )
 
@@ -92,6 +98,6 @@ model_params = {
 }
 
 server = ModularServer(
-    InfectionModel, [canvas_element, text_element, chart, chart2], "Covid Model", model_params
+    InfectionModel, [canvas_element, text_element, chart, chart2, chart3], "Covid Model", model_params
 )
 server.port = 8521
