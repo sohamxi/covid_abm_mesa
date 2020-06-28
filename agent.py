@@ -138,7 +138,7 @@ class Human(Agent):
                     self.recovery_time =1
                 drate = cond_drate/self.recovery_time
                 #if drate >= 1:
-                print(f'death rate is too high : {drate} Agent:{self.unique_id}')
+                #print(f'death rate is too high : {drate} Agent:{self.unique_id}')
                 #drate = self.model.death_rate/ self.model.severe_perc
                 #print(f'For Agent : {self.unique_id} Death Rate:{drate}')
                 alive = np.random.choice([0,1], p=[drate,1-drate])
@@ -156,7 +156,7 @@ class Human(Agent):
                 turn_severe_today = np.random.choice([True,False],p=[turn_severe_prob,1-turn_severe_prob])
                 if turn_severe_today:
                     self.severity = InfectionSeverity.Severe
-                    print(f'Agent {self.unique_id} has turned Severe with Proba: {turn_severe_prob}')
+                    #print(f'Agent {self.unique_id} has turned Severe with Proba: {turn_severe_prob}')
 
             #  People Passed due time show symptoms and Put to Quarantine
             time_passed = self.model.schedule.time - self.infection_time
@@ -209,7 +209,7 @@ class Human(Agent):
               other.state = InfectionState.INFECTED
               other.infection_time = self.model.schedule.time
               other.recovery_time = self.model.get_recovery_time()
-              print(f'New Person Infected, recovery rate : {other.recovery_time} and time till symptom : {other.symptoms}') 
+              #print(f'New Person Infected, recovery rate : {other.recovery_time} and time till symptom : {other.symptoms}') 
               self.induced_infections +=1
               self.infected_others = True
               # set Severity
