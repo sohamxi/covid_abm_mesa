@@ -84,11 +84,12 @@ class Human(Agent):
 
         if (self.state != InfectionState.DIED) and (self.severity == InfectionSeverity.Asymptomatic) :
             
-            mov_prob = self.model.mov_prob
-            move_today = np.random.choice([True,False],p=[mov_prob,1-mov_prob])
-            if move_today:
-                basic_income_temp = basic_income[self.social_stratum]
-                variable_income_temp = self.random.random() *self.random.random()* basic_income[self.social_stratum]
+            if self.age >= 18:
+                mov_prob = self.model.mov_prob
+                move_today = np.random.choice([True,False],p=[mov_prob,1-mov_prob])
+                if move_today:
+                    basic_income_temp = basic_income[self.social_stratum]
+                    variable_income_temp = self.random.random() *self.random.random()* basic_income[self.social_stratum]
         else:
             basic_income_temp = 0
             variable_income_temp = 0
@@ -401,10 +402,10 @@ class InfectionModel(Model):
         if self.severe >= self.hospital_capacity:
             # If Severity exceeds Healthcare Capaity Death Rate will increase
             self.death_rate = self.initial_death_rate * 3
-            print(f'Death rate updated to :{self.death_rate}')
+            #print(f'Death rate updated to :{self.death_rate}')
         else:
             self.death_rate = self.initial_death_rate
-            print(f'Death rate updated to :{self.death_rate}')
+            #print(f'Death rate updated to :{self.death_rate}')
         
 
         # Calculating Dead
@@ -464,7 +465,7 @@ class InfectionModel(Model):
         for agent in self.schedule.agents:
             if agent.state == InfectionState.INFECTED:
                 agent.symptoms = 6*0.5 # min(symptoms)*0.5
-                print(f'Agent with id: {agent.unique_id} will be shown symptoms in:{agent.symptoms}')
+                #print(f'Agent with id: {agent.unique_id} will be shown symptoms in:{agent.symptoms}')
         #self.agent.symptoms=0
 
     def check_for_intervention(self):
