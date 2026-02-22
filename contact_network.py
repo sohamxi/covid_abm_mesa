@@ -31,10 +31,10 @@ class ContactLayer(Enum):
 # Household contacts are long-duration, close proximity -> highest
 # Community contacts are brief, random -> lowest
 LAYER_TRANSMISSION_MULTIPLIER = {
-    ContactLayer.HOUSEHOLD: 3.0,
-    ContactLayer.WORKPLACE: 1.0,
-    ContactLayer.SCHOOL: 1.2,
-    ContactLayer.COMMUNITY: 0.3,
+    ContactLayer.HOUSEHOLD: 3.0,   # Long-duration close contact (SAR ~18%)
+    ContactLayer.WORKPLACE: 0.6,   # Covasim calibrated value
+    ContactLayer.SCHOOL: 0.6,      # Covasim calibrated value
+    ContactLayer.COMMUNITY: 0.3,   # Brief random encounters
 }
 
 # Average number of daily contacts per layer (from POLYMOD / Covasim)
