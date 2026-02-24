@@ -1,7 +1,4 @@
-import enum
-from enum import Enum
 import numpy as np
-import pandas as pd
 from mesa import Agent, Model
 from mesa.space import MultiGrid
 from mesa.datacollection import DataCollector

@@ -1,8 +1,12 @@
-Mesa>=3.3.0,<3.4
+# Core dependencies (Python >= 3.10 required)
+Mesa>=3.3.0,<4
 numpy>=1.26.0
-matplotlib>=3.8.0
 pandas>=2.1.0
 solara>=1.30.0
+
+# Dashboard
 plotly>=5.18.0
 dash>=2.14.0
-requests>=2.31.0
+
+# Notebook (optional, used by Report_Covid_Modelling.ipynb)
+matplotlib>=3.8.0
