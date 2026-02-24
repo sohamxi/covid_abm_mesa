@@ -1,4 +1,8 @@
-numpy==1.18.1
-Mesa==0.8.7
-matplotlib==3.2.0
-pandas==1.0.3
+Mesa>=3.3.0,<3.4
+numpy>=1.26.0
+matplotlib>=3.8.0
+pandas>=2.1.0
+solara>=1.30.0
+plotly>=5.18.0
+dash>=2.14.0
+requests>=2.31.0
