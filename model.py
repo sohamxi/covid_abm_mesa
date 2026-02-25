@@ -14,8 +14,10 @@ class InfectionModel(Model):
                  lockdown=False, saq=False, ipa=False, mm=False,
                  vaccination=False, vaccination_rate=0.01,
                  hospital_capacity=0.01,
+                 max_steps=60,
                  seed=None):
         super().__init__(seed=seed)
+        self.max_steps = max_steps
         self.population = N
         self.ptrans = ptrans
         self.initial_ptrans = ptrans
@@ -268,5 +270,5 @@ class InfectionModel(Model):
         self.compute()
         self.compute_wealth()
         self.datacollector.collect(self)
-        if self.steps >= 60:
+        if self.steps >= self.max_steps:
             self.running = False

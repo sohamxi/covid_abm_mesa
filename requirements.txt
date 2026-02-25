@@ -2,7 +2,6 @@
 Mesa>=3.3.0,<4
 numpy>=1.26.0
 pandas>=2.1.0
-solara>=1.30.0
 
 # Dashboard
 plotly>=5.18.0

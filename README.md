@@ -1,6 +1,8 @@
 # COVID-19 Agent-Based Model (Mesa)
 
-An agent-based model for simulating COVID-19 spread using the Mesa ABM framework. Features multi-layer contact networks (household, workplace, school, community), age-stratified disease parameters, vaccination, and economic impact tracking.
+Simulate COVID-19 spread and **compare intervention strategies** (lockdown, masks, vaccination, etc.) to evaluate their health AND economic tradeoffs. Built to help decision-makers choose policies by running side-by-side scenario comparisons.
+
+Features: multi-layer contact networks (household, workplace, school, community), age-stratified disease parameters, vaccination with waning immunity, and wealth impact tracking across social strata.
 
 ## Requirements
 
@@ -20,25 +22,24 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Quick test
-```bash
-python3 -c "from model import InfectionModel; m = InfectionModel(N=200); [m.step() for _ in range(60)]; print(f'R0={m.R0:.2f}')"
-```
-
-### Interactive visualization (Mesa SolaraViz)
-```bash
-solara run server.py
-```
-
-### Plotly Dash dashboard
+### Dashboard (scenario comparison)
 ```bash
 python3 dashboard.py
 # Open http://localhost:8050
 ```
 
-### Batch scenario comparison
+Select intervention scenarios, configure shared parameters (population, transmission probability, simulation days), and click **Run Comparison** to see side-by-side health vs economic outcomes.
+
+### Batch scenario comparison (headless)
 ```bash
 python3 batch_runner.py
+```
+
+Runs predefined scenarios in the terminal and prints summary statistics.
+
+### Quick test
+```bash
+python3 -c "from model import InfectionModel; m = InfectionModel(N=200); [m.step() for _ in range(60)]; print(f'R0={m.R0:.2f}')"
 ```
 
 ### Jupyter notebook
@@ -50,12 +51,11 @@ jupyter notebook Report_Covid_Modelling.ipynb
 
 | File | Description |
 |---|---|
-| `model.py` | `InfectionModel` - main Mesa model with SEIR dynamics and interventions |
+| `model.py` | `InfectionModel` — Mesa model with SEIR dynamics, interventions, configurable `max_steps` |
 | `agent.py` | `Human` agent with age-stratified disease, vaccination, and economic behavior |
 | `disease_params.py` | Age-stratified COVID-19 parameters (IFR, hospitalization, vaccine efficacy) |
 | `contact_network.py` | Multi-layer contact network (household, workplace, school, community) |
-| `server.py` | Mesa SolaraViz interactive visualization |
-| `dashboard.py` | Plotly Dash production dashboard |
-| `batch_runner.py` | Parameter sweep and sensitivity analysis |
-| `data_loader.py` | Real-world OWID COVID-19 data loader for comparison |
+| `dashboard.py` | Plotly Dash dashboard for intervention scenario comparison |
+| `batch_runner.py` | Parameter sweep and sensitivity analysis (headless) |
+| `data_loader.py` | Real-world OWID COVID-19 data loader for calibration |
 | `Report_Covid_Modelling.ipynb` | Background and methodology notebook |
