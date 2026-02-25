@@ -168,6 +168,9 @@ class Human(Agent):
                 # Daily death probability scaled from IFR over expected severe duration
                 severe_duration = max(1, self.recovery_time - self.symptoms)
                 daily_death_prob = min(0.99, self.ifr / max(1, severe_duration))
+                # Hospital overflow triples death rate
+                if self.model.severe >= self.model.hospital_capacity:
+                    daily_death_prob = min(0.99, daily_death_prob * 3.0)
                 # Vaccine reduces death probability
                 vax_protection = self.get_vaccine_protection("efficacy_death")
                 daily_death_prob *= (1 - vax_protection)
@@ -212,7 +215,9 @@ class Human(Agent):
         if self.severity == InfectionSeverity.Severe:
             return  # Hospitalized, no community contacts
 
-        # Household contacts (always active, even under quarantine)
+        mov_prob = self.model.mov_prob
+
+        # Household contacts (always active, even under quarantine/lockdown)
         hh_contacts = get_contacts(self, ContactLayer.HOUSEHOLD, self.random)
         for other in hh_contacts:
             if other.state != InfectionState.DIED:
@@ -222,20 +227,22 @@ class Human(Agent):
         if self.severity == InfectionSeverity.Quarantined:
             return
 
-        # Workplace contacts
-        wp_contacts = get_contacts(self, ContactLayer.WORKPLACE, self.random)
-        for other in wp_contacts:
-            if other.state != InfectionState.DIED:
-                self.infect(other, ContactLayer.WORKPLACE)
+        # Workplace contacts (gated by mobility — lockdown keeps people home)
+        if self.random.random() < mov_prob:
+            wp_contacts = get_contacts(self, ContactLayer.WORKPLACE, self.random)
+            for other in wp_contacts:
+                if other.state != InfectionState.DIED:
+                    self.infect(other, ContactLayer.WORKPLACE)
 
-        # School contacts
-        sc_contacts = get_contacts(self, ContactLayer.SCHOOL, self.random)
-        for other in sc_contacts:
-            if other.state != InfectionState.DIED:
-                self.infect(other, ContactLayer.SCHOOL)
+        # School contacts (gated by mobility — schools close during lockdown)
+        if self.random.random() < mov_prob:
+            sc_contacts = get_contacts(self, ContactLayer.SCHOOL, self.random)
+            for other in sc_contacts:
+                if other.state != InfectionState.DIED:
+                    self.infect(other, ContactLayer.SCHOOL)
 
-        # Community contacts (grid-based)
-        if self.pos is not None:
+        # Community contacts (grid-based, gated by mobility)
+        if self.random.random() < mov_prob and self.pos is not None:
             neighbors = self.model.grid.get_cell_list_contents([self.pos])
             for other in neighbors:
                 if other is not self and other.state != InfectionState.DIED:
@@ -261,19 +268,13 @@ class Human(Agent):
         if other.state == InfectionState.SUSCEPTIBLE or other.state == InfectionState.EXPOSED:
             if self.random.random() < ptrans:
                 if other.state == InfectionState.SUSCEPTIBLE:
-                    # New exposure
+                    # New exposure — severity develops later during infection
                     other.state = InfectionState.EXPOSED
                     other.infection_time = self.model.steps
                     other.incubation_period = sample_incubation_period(self.random)
                     other.recovery_time = other.incubation_period + sample_infectious_duration(self.random)
                     self.induced_infections += 1
                     self.infected_others = True
-                    # Age-stratified severity at infection time
-                    hosp_rate = other.hospitalization_rate
-                    vax_severe = other.get_vaccine_protection("efficacy_severe")
-                    hosp_rate *= (1 - vax_severe)
-                    if self.random.random() < hosp_rate:
-                        other.severity = InfectionSeverity.Severe
                 elif other.state == InfectionState.EXPOSED:
                     # Already exposed, just count secondary infection attempt
                     pass

@@ -25,6 +25,42 @@ from agent import InfectionState, InfectionSeverity
 app = dash.Dash(__name__, title="COVID-19 ABM Dashboard",
                 suppress_callback_exceptions=True)
 
+# CSS for hover tooltips (native title= is unreliable in some browsers)
+app.index_string = '''<!DOCTYPE html>
+<html>
+<head>
+    {%metas%}
+    <title>{%title%}</title>
+    {%favicon%}
+    {%css%}
+    <style>
+    .info-tip { position: relative; display: inline-flex; align-items: center;
+        justify-content: center; width: 16px; height: 16px; border-radius: 50%;
+        background-color: #95a5a6; color: white; font-size: 10px; font-weight: bold;
+        margin-left: 6px; cursor: help; vertical-align: middle; user-select: none;
+        flex-shrink: 0; }
+    .info-tip:hover .info-tip-text { visibility: visible; opacity: 1; }
+    .info-tip-text { visibility: hidden; opacity: 0; position: absolute;
+        bottom: 125%; left: 50%; transform: translateX(-50%); width: 260px;
+        background-color: #2c3e50; color: #fff; text-align: left; padding: 8px 10px;
+        border-radius: 6px; font-size: 12px; font-weight: normal; font-style: normal;
+        line-height: 1.4; z-index: 1000; transition: opacity 0.2s;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.2); pointer-events: none; }
+    .info-tip-text::after { content: ""; position: absolute; top: 100%; left: 50%;
+        margin-left: -5px; border-width: 5px; border-style: solid;
+        border-color: #2c3e50 transparent transparent transparent; }
+    </style>
+</head>
+<body>
+    {%app_entry%}
+    <footer>
+        {%config%}
+        {%scripts%}
+        {%renderer%}
+    </footer>
+</body>
+</html>'''
+
 # Each agent represents SCALE_FACTOR people. The slider shows real-world
 # population sizes (50K–500K) but the model runs a representative sample.
 SCALE_FACTOR = 1000
@@ -88,19 +124,11 @@ SIM_STATE = {"model": None, "history": []}
 # ── Helper: info icon with hover tooltip ──────────────────────────────
 
 def info_icon(tooltip):
-    """Small circled (i) that shows a tooltip on hover."""
-    return html.Span(
-        "i",
-        title=tooltip,
-        style={
-            "display": "inline-flex", "alignItems": "center",
-            "justifyContent": "center", "width": "16px", "height": "16px",
-            "borderRadius": "50%", "backgroundColor": "#95a5a6",
-            "color": "white", "fontSize": "10px", "fontStyle": "italic",
-            "fontWeight": "bold", "marginLeft": "6px", "cursor": "help",
-            "verticalAlign": "middle", "userSelect": "none",
-        },
-    )
+    """Small circled (i) with CSS hover tooltip."""
+    return html.Span([
+        "?",
+        html.Span(tooltip, className="info-tip-text"),
+    ], className="info-tip")
 
 
 def section_label(text, tooltip):
@@ -624,9 +652,9 @@ def _collect_step(model):
         "exposed": model.percentage_exposed,
         "infected": model.percentage_infected,
         "recovered": model.percentage_recovered,
-        "dead": model.dead * SCALE_FACTOR,
-        "severe": model.severe * SCALE_FACTOR,
-        "hospital_capacity": model.hospital_capacity * SCALE_FACTOR,
+        "dead_pct": model.percentage_dead,
+        "severe_pct": (model.severe / model.population) * 100,
+        "hospital_capacity_pct": (model.hospital_capacity / model.population) * 100,
         "vaccinated": model.percentage_vaccinated,
         "R0": model.R0,
         "Most Poor": model.wealth_most_poor,
@@ -668,7 +696,7 @@ def _make_grid_figure(model):
         text=text, hoverinfo="text",
     ))
     fig.update_layout(
-        title={"text": "Agent Grid  \u24d8", "x": 0.5, "font": {"size": 14}},
+        title={"text": "Agent Grid (spatial view)", "x": 0.5, "font": {"size": 14}},
         xaxis=dict(range=[-0.5, model.grid.width - 0.5], showgrid=False, zeroline=False),
         yaxis=dict(range=[-0.5, model.grid.height - 0.5], showgrid=False, zeroline=False),
         plot_bgcolor="#f0f0f0", margin=dict(l=30, r=10, t=35, b=30),
@@ -765,21 +793,24 @@ def run_single_sim(n_clicks, pop_display_val, ptrans, init_inf, max_steps,
         margin=dict(l=50, r=10, t=40, b=55),
     )
 
-    # ── Severity / Deaths ──
+    # ── Severity / Deaths (all as % of population) ──
     sev_fig = go.Figure()
-    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["dead"], mode="lines",
-                                 name="Deaths", line=dict(color=STATE_COLORS["dead"], width=2)))
-    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["severe"], mode="lines",
-                                 name="Severe Cases", line=dict(color=STATE_COLORS["severe"], width=2)))
-    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["hospital_capacity"], mode="lines",
+    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["dead_pct"], mode="lines",
+                                 name="Cumulative Deaths",
+                                 line=dict(color=STATE_COLORS["dead"], width=2)))
+    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["severe_pct"], mode="lines",
+                                 name="Severe / Hospitalized",
+                                 line=dict(color=STATE_COLORS["severe"], width=2)))
+    sev_fig.add_trace(go.Scatter(x=df["step"], y=df["hospital_capacity_pct"], mode="lines",
                                  name="Hospital Capacity",
                                  line=dict(color="#b40ec7", width=2, dash="dash")))
     sev_fig.add_trace(go.Scatter(x=df["step"], y=df["vaccinated"], mode="lines",
-                                 name="Vaccinated %",
+                                 name="Vaccinated",
                                  line=dict(color=STATE_COLORS["vaccinated"], width=2)))
     sev_fig.update_layout(
-        title={"text": "Severity & Interventions", "x": 0.5, "font": {"size": 14}},
-        xaxis_title="Day",
+        title={"text": "Deaths, Severity & Vaccination (% of population)",
+               "x": 0.5, "font": {"size": 14}},
+        xaxis_title="Day", yaxis_title="% of Population",
         legend=dict(orientation="h", y=-0.25),
         margin=dict(l=50, r=10, t=40, b=60),
     )
@@ -884,6 +915,8 @@ def run_comparison(n_clicks, pop_display_val, ptrans, init_inf, max_steps,
     all_results = []
     for name in selected_scenarios:
         result = _run_scenario(name, SCENARIOS.get(name, {}), shared, n_runs, max_steps)
+        # Compute death % from raw count (datacollector stores raw agent count)
+        result["dead_pct"] = result["dead"] / n_agents * 100
         all_results.append(result)
     results_df = pd.concat(all_results, ignore_index=True)
 
@@ -894,12 +927,11 @@ def run_comparison(n_clicks, pop_display_val, ptrans, init_inf, max_steps,
         final = sc.iloc[-1]
         peak_inf = sc["infected"].max()
         peak_day = int(sc.loc[sc["infected"].idxmax(), "step"])
-        scaled_dead = final["dead"] * SCALE_FACTOR
         rows.append({
             "Scenario": name,
             "Peak Infected (%)": f"{peak_inf:.1f}",
             "Peak Day": str(peak_day),
-            f"Total Deaths (x{SCALE_FACTOR})": f"{scaled_dead:,.0f}",
+            "Deaths (% of pop.)": f"{final['dead_pct']:.2f}%",
             "Peak R0": f"{sc['R0'].max():.2f}",
             "Final Vaccinated (%)": f"{final.get('vaccinated', 0):.1f}",
             "Wealth (Most Poor)": f"{final.get('Most Poor', 0):,.0f}",
@@ -933,18 +965,18 @@ def run_comparison(n_clicks, pop_display_val, ptrans, init_inf, max_steps,
         margin=dict(l=50, r=10, t=40, b=60),
     )
 
-    # ── Deaths ──
+    # ── Deaths (% of population — averaged over runs) ──
     death_fig = go.Figure()
     for name in selected_scenarios:
         sc = results_df[results_df["scenario"] == name]
         death_fig.add_trace(go.Scatter(
-            x=sc["step"], y=sc["dead"] * SCALE_FACTOR, mode="lines",
+            x=sc["step"], y=sc["dead_pct"], mode="lines",
             name=name, line=dict(color=SCENARIO_COLORS.get(name, "#999"), width=2.5),
         ))
     death_fig.update_layout(
-        title={"text": f"Cumulative Deaths (scaled x{SCALE_FACTOR})", "x": 0.5,
+        title={"text": "Cumulative Deaths (% of population)", "x": 0.5,
                "font": {"size": 14}},
-        xaxis_title="Day", yaxis_title="Deaths",
+        xaxis_title="Day", yaxis_title="% of Population",
         legend=dict(orientation="h", y=-0.2),
         margin=dict(l=50, r=10, t=40, b=60),
     )

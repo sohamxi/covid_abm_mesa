@@ -64,8 +64,6 @@ class InfectionModel(Model):
         self.intervention4 = mm
         self.vaccination_enabled = vaccination
         self.vaccination_rate = vaccination_rate  # Fraction of susceptible vaccinated per step
-        print(f'Intervention Status: \n Lockdown:{self.intervention1}; Screening:{self.intervention2}, '
-              f'Public Awareness:{self.intervention3}; Masks:{self.intervention4}; Vaccination:{self.vaccination_enabled}')
 
         # Data Collector
         self.datacollector = DataCollector(model_reporters={
@@ -92,14 +90,14 @@ class InfectionModel(Model):
             y = self.random.randrange(self.grid.height)
             self.grid.place_agent(a, (x, y))
 
-            # Initial Infection
-            infection = np.random.choice([0, 1], p=[(1 - self.initial_infected_perc), self.initial_infected_perc])
-            if infection == 1:
+            # Initial Infection (uses seeded random for reproducibility)
+            if self.random.random() < self.initial_infected_perc:
                 a.state = InfectionState.INFECTED
                 a.infection_time = 0
-                a.recovery_time = self.get_recovery_time()
-                severity = np.random.choice([0, 1], p=[(1 - self.severe_perc), self.severe_perc])
-                if severity == 1:
+                a.incubation_period = 0  # Already past incubation
+                a.recovery_time = sample_infectious_duration(self.random)
+                # Age-stratified severity
+                if self.random.random() < a.hospitalization_rate:
                     a.severity = InfectionSeverity.Severe
 
         # Build contact networks
