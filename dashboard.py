@@ -58,6 +58,28 @@ STATE_COLORS = {
     "severe": "#8b0000",
 }
 
+# ── Countries for real data comparison (top ~35 by population/GDP) ────
+
+COUNTRIES = {
+    "USA": "United States", "GBR": "United Kingdom", "DEU": "Germany",
+    "FRA": "France", "ITA": "Italy", "ESP": "Spain", "BRA": "Brazil",
+    "IND": "India", "JPN": "Japan", "KOR": "South Korea", "CAN": "Canada",
+    "AUS": "Australia", "RUS": "Russia", "MEX": "Mexico", "IDN": "Indonesia",
+    "TUR": "Turkey", "ZAF": "South Africa", "NGA": "Nigeria",
+    "ARG": "Argentina", "COL": "Colombia", "EGY": "Egypt", "IRN": "Iran",
+    "ISR": "Israel", "SWE": "Sweden", "NLD": "Netherlands", "BEL": "Belgium",
+    "POL": "Poland", "PHL": "Philippines", "BGD": "Bangladesh",
+    "THA": "Thailand", "VNM": "Vietnam", "PAK": "Pakistan",
+    "SAU": "Saudi Arabia", "PER": "Peru", "CHL": "Chile",
+}
+
+WAVES = {
+    "First Wave (Mar 2020)": "2020-03-01",
+    "Second Wave (Oct 2020)": "2020-10-01",
+    "Delta (Jul 2021)": "2021-07-01",
+    "Omicron (Dec 2021)": "2021-12-01",
+}
+
 # ── Global state for single-simulation tab ────────────────────────────
 
 SIM_STATE = {"model": None, "history": []}
@@ -449,6 +471,100 @@ compare_layout = html.Div([
 
 
 # ══════════════════════════════════════════════════════════════════════
+#  TAB 4 — REAL DATA COMPARISON
+# ══════════════════════════════════════════════════════════════════════
+
+realdata_layout = html.Div([
+    html.Div([
+        # Left sidebar
+        html.Div([
+            html.H3("Country & Period", style={"marginTop": "0"}),
+
+            section_label("Country",
+                          "Select a country to load real COVID-19 data from "
+                          "Our World in Data (OWID). Data includes cases, deaths, "
+                          "R0, stringency index, and vaccination rates."),
+            dcc.Dropdown(
+                id="rd-country",
+                options=[{"label": f"{name} ({iso})", "value": iso}
+                         for iso, name in sorted(COUNTRIES.items(), key=lambda x: x[1])],
+                value="USA",
+                clearable=False,
+                style={"marginBottom": "10px"},
+            ),
+
+            section_label("Wave / Period",
+                          "Different waves had different variants, government "
+                          "responses, and vaccination coverage. Choose which "
+                          "period of the pandemic to compare against."),
+            dcc.RadioItems(
+                id="rd-wave",
+                options=[{"label": f"  {name}", "value": start}
+                         for name, start in WAVES.items()],
+                value="2020-03-01",
+                style={"lineHeight": "2.2"},
+            ),
+
+            section_label("Duration (days)",
+                          "How many days of real data to load and simulate. "
+                          "90 days covers a typical wave peak and decline."),
+            dcc.Slider(id="rd-days-slider", min=30, max=180, step=10, value=90,
+                       marks={30: "30", 60: "60", 90: "90", 120: "120", 180: "180"}),
+
+            html.Hr(),
+            html.Div([
+                html.H3("How it works", style={"fontSize": "14px", "marginBottom": "5px"}),
+                html.P([
+                    "The model's transmission probability and interventions are ",
+                    html.Strong("auto-estimated"), " from the real data's R0 and "
+                    "government stringency index. This lets you see how close a "
+                    "simplified ABM can get to reality."
+                ], style={"fontSize": "12px", "color": "#555", "lineHeight": "1.5"}),
+            ]),
+
+            html.Hr(),
+            html.Button("Run Comparison", id="rd-run-btn", n_clicks=0,
+                        style={"width": "100%", "padding": "12px", "fontSize": "15px",
+                               "backgroundColor": "#8e44ad", "color": "white",
+                               "border": "none", "borderRadius": "6px",
+                               "cursor": "pointer", "fontWeight": "bold"}),
+
+            html.Div(id="rd-status",
+                     style={"marginTop": "10px", "fontSize": "13px", "color": "#666"}),
+
+        ], style={"width": "280px", "padding": "15px", "backgroundColor": "#fff",
+                  "borderRight": "1px solid #ddd", "overflowY": "auto"}),
+
+        # Right: comparison charts
+        html.Div([
+            # Estimated params + fit info
+            html.Div(id="rd-params-info", style={"marginBottom": "10px"}),
+            # Summary table
+            html.Div(id="rd-summary-table", style={"marginBottom": "15px"}),
+
+            # Row 1: Cases + Deaths
+            html.Div([
+                html.Div([dcc.Graph(id="rd-cases-plot", style={"height": "320px"})],
+                         style={"flex": "1", "minWidth": "400px"}),
+                html.Div([dcc.Graph(id="rd-deaths-plot", style={"height": "320px"})],
+                         style={"flex": "1", "minWidth": "400px"}),
+            ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap"}),
+
+            # Row 2: R0 + Stringency
+            html.Div([
+                html.Div([dcc.Graph(id="rd-r0-plot", style={"height": "320px"})],
+                         style={"flex": "1", "minWidth": "400px"}),
+                html.Div([dcc.Graph(id="rd-stringency-plot", style={"height": "320px"})],
+                         style={"flex": "1", "minWidth": "400px"}),
+            ], style={"display": "flex", "gap": "10px", "flexWrap": "wrap",
+                      "marginTop": "10px"}),
+
+        ], style={"flex": "1", "padding": "15px", "overflowY": "auto"}),
+    ], style={"display": "flex", "height": "calc(100vh - 120px)"}),
+])
+
+
+# ══════════════════════════════════════════════════════════════════════
 #  MAIN LAYOUT — TABS
 # ══════════════════════════════════════════════════════════════════════
 
@@ -457,7 +573,7 @@ app.layout = html.Div([
     html.Div([
         html.H1("COVID-19 Agent-Based Model",
                 style={"margin": "0", "fontSize": "22px"}),
-        html.P("Simulate, compare, and understand intervention strategies",
+        html.P("Simulate, compare, and validate against real-world data",
                style={"margin": "0", "fontSize": "12px", "opacity": "0.7"}),
     ], style={"padding": "12px 20px", "backgroundColor": "#2c3e50",
               "color": "white"}),
@@ -469,6 +585,8 @@ app.layout = html.Div([
         dcc.Tab(label="Simulate", value="simulate",
                 style={"padding": "8px 20px"}, selected_style={"padding": "8px 20px", "fontWeight": "bold"}),
         dcc.Tab(label="Compare Scenarios", value="compare",
+                style={"padding": "8px 20px"}, selected_style={"padding": "8px 20px", "fontWeight": "bold"}),
+        dcc.Tab(label="Real Data", value="realdata",
                 style={"padding": "8px 20px"}, selected_style={"padding": "8px 20px", "fontWeight": "bold"}),
     ], style={"borderBottom": "2px solid #2c3e50"}),
 
@@ -489,6 +607,8 @@ def render_tab(tab):
         return sim_layout
     elif tab == "compare":
         return compare_layout
+    elif tab == "realdata":
+        return realdata_layout
     return about_layout
 
 
@@ -870,6 +990,293 @@ def run_comparison(n_clicks, pop_display_val, ptrans, init_inf, max_steps,
               f"{total_runs} simulations ({pop_label} population, {max_steps} days each).")
 
     return table, inf_fig, death_fig, r0_fig, wealth_fig, status
+
+
+# ══════════════════════════════════════════════════════════════════════
+#  CALLBACKS — REAL DATA COMPARISON
+# ══════════════════════════════════════════════════════════════════════
+
+def _estimate_params(real_data):
+    """Auto-estimate simulation parameters from OWID data."""
+    # Transmission probability from peak R0
+    r0 = real_data["reproduction_rate"].dropna()
+    if not r0.empty:
+        peak_r0 = float(r0.max())
+        ptrans = np.clip(peak_r0 * 0.025, 0.01, 0.2)
+    else:
+        ptrans = 0.05
+
+    # Initial infected from first day's cases
+    cases_pm = real_data["total_cases_per_million"].dropna()
+    if not cases_pm.empty and cases_pm.iloc[0] > 0:
+        init_inf = np.clip(cases_pm.iloc[0] / 1_000_000, 0.01, 0.2)
+    else:
+        init_inf = 0.01
+
+    # Interventions from median stringency index
+    si = real_data["stringency_index"].dropna()
+    median_si = float(si.median()) if not si.empty else 0
+
+    interventions = []
+    if median_si > 60:
+        interventions = ["lockdown", "mm", "ipa", "saq"]
+    elif median_si > 40:
+        interventions = ["mm", "ipa"]
+    elif median_si > 20:
+        interventions = ["ipa"]
+
+    # Vaccination from data
+    vax = real_data["people_vaccinated_per_hundred"].dropna()
+    has_vaccination = not vax.empty and float(vax.max()) > 1
+
+    return {
+        "ptrans": round(float(ptrans), 3),
+        "initial_infected_perc": round(float(init_inf), 3),
+        "interventions": interventions,
+        "vaccination": has_vaccination,
+        "median_stringency": round(median_si, 1),
+        "peak_r0_real": round(float(r0.max()), 2) if not r0.empty else None,
+    }
+
+
+def _compute_correlation(real_series, model_series):
+    """Pearson correlation between two series, handling NaNs and constants."""
+    mask = real_series.notna() & model_series.notna()
+    if mask.sum() < 5:
+        return None
+    r, m = real_series[mask].values, model_series[mask].values
+    if np.std(r) == 0 or np.std(m) == 0:
+        return None
+    return float(np.corrcoef(r, m)[0, 1])
+
+
+@callback(
+    Output("rd-params-info", "children"),
+    Output("rd-summary-table", "children"),
+    Output("rd-cases-plot", "figure"),
+    Output("rd-deaths-plot", "figure"),
+    Output("rd-r0-plot", "figure"),
+    Output("rd-stringency-plot", "figure"),
+    Output("rd-status", "children"),
+    Input("rd-run-btn", "n_clicks"),
+    State("rd-country", "value"),
+    State("rd-wave", "value"),
+    State("rd-days-slider", "value"),
+    prevent_initial_call=True,
+)
+def run_real_data_comparison(n_clicks, country_code, wave_start, max_days):
+    from data_loader import get_country_data
+
+    country_name = COUNTRIES.get(country_code, country_code)
+
+    # ── Load real data ──
+    try:
+        real_data = get_country_data(country_code, start_date=wave_start,
+                                     max_days=max_days)
+    except Exception as e:
+        error_msg = (f"Could not load data for {country_name}: {e}. "
+                     "Check your internet connection or try again.")
+        empty = go.Figure()
+        return None, None, empty, empty, empty, empty, error_msg
+
+    if real_data.empty or len(real_data) < 10:
+        error_msg = f"Insufficient data for {country_name} starting {wave_start}."
+        empty = go.Figure()
+        return None, None, empty, empty, empty, empty, error_msg
+
+    # ── Auto-estimate params ──
+    params = _estimate_params(real_data)
+    n_agents = 200  # Fixed representative sample for consistency
+
+    # ── Run simulation ──
+    model = InfectionModel(
+        N=n_agents, width=15, height=15,
+        ptrans=params["ptrans"],
+        initial_infected_perc=params["initial_infected_perc"],
+        max_steps=max_days,
+        lockdown="lockdown" in params["interventions"],
+        saq="saq" in params["interventions"],
+        ipa="ipa" in params["interventions"],
+        mm="mm" in params["interventions"],
+        vaccination=params["vaccination"],
+        vaccination_rate=0.02 if params["vaccination"] else 0.0,
+        seed=42,
+    )
+    for _ in range(max_days):
+        if not model.running:
+            break
+        model.step()
+
+    model_df = model.datacollector.get_model_vars_dataframe()
+    model_df["step"] = range(len(model_df))
+
+    # ── Normalize for comparison (both as % of population) ──
+    # Real: cases and deaths as % of population
+    real_cases_pct = real_data["total_cases_per_million"] / 10_000
+    real_deaths_pct = real_data["total_deaths_per_million"] / 10_000
+    real_r0 = real_data["reproduction_rate"]
+    real_days = real_data["day"]
+
+    # Model: cumulative cases = 100 - susceptible%, deaths as %
+    model_cases_pct = 100 - model_df["susceptible"]
+    model_deaths_pct = model_df["dead"] / n_agents * 100
+    model_r0 = model_df["R0"]
+    model_days = model_df["step"]
+
+    # Align lengths
+    n_days = min(len(real_days), len(model_days))
+
+    # ── Fit quality ──
+    cases_corr = _compute_correlation(
+        real_cases_pct.iloc[:n_days].reset_index(drop=True),
+        model_cases_pct.iloc[:n_days].reset_index(drop=True))
+    deaths_corr = _compute_correlation(
+        real_deaths_pct.iloc[:n_days].reset_index(drop=True),
+        model_deaths_pct.iloc[:n_days].reset_index(drop=True))
+    r0_corr = _compute_correlation(
+        real_r0.iloc[:n_days].reset_index(drop=True),
+        model_r0.iloc[:n_days].reset_index(drop=True))
+
+    # ── Params info box ──
+    intervention_names = {
+        "lockdown": "Lockdown", "mm": "Masks", "ipa": "Awareness", "saq": "Screening"
+    }
+    active = [intervention_names[i] for i in params["interventions"]]
+    if params["vaccination"]:
+        active.append("Vaccination")
+    active_str = ", ".join(active) if active else "None"
+
+    params_info = html.Div([
+        html.Div([
+            html.Strong("Auto-estimated parameters: "),
+            f"ptrans={params['ptrans']}, initial_infected={params['initial_infected_perc']:.1%}, "
+            f"stringency={params['median_stringency']}/100 → interventions: {active_str}",
+        ], style={"fontSize": "12px", "color": "#555"}),
+        html.Div([
+            html.Strong("Fit quality (Pearson r): "),
+            f"Cases={cases_corr:.3f}, " if cases_corr is not None else "Cases=N/A, ",
+            f"Deaths={deaths_corr:.3f}, " if deaths_corr is not None else "Deaths=N/A, ",
+            f"R0={r0_corr:.3f}" if r0_corr is not None else "R0=N/A",
+        ], style={"fontSize": "12px", "color": "#555", "marginTop": "4px"}),
+    ], style={"padding": "10px 14px", "backgroundColor": "#eef2f7",
+              "borderRadius": "6px", "border": "1px solid #cfd8e3"})
+
+    # ── Summary table ──
+    real_peak_cases = float(real_cases_pct.max()) if not real_cases_pct.isna().all() else 0
+    model_peak_cases = float(model_cases_pct.iloc[:n_days].max())
+    real_final_deaths = float(real_deaths_pct.iloc[n_days - 1]) if not real_deaths_pct.isna().all() else 0
+    model_final_deaths = float(model_deaths_pct.iloc[n_days - 1])
+    real_peak_r0 = float(real_r0.max()) if not real_r0.isna().all() else 0
+    model_peak_r0 = float(model_r0.iloc[:n_days].max())
+
+    summary_rows = [
+        {"Metric": "Peak Cumulative Cases (%)",
+         "Real Data": f"{real_peak_cases:.2f}%",
+         "Model": f"{model_peak_cases:.2f}%"},
+        {"Metric": f"Deaths at Day {n_days} (%)",
+         "Real Data": f"{real_final_deaths:.3f}%",
+         "Model": f"{model_final_deaths:.3f}%"},
+        {"Metric": "Peak R0",
+         "Real Data": f"{real_peak_r0:.2f}",
+         "Model": f"{model_peak_r0:.2f}"},
+    ]
+    summary = dash_table.DataTable(
+        columns=[{"name": c, "id": c} for c in ["Metric", "Real Data", "Model"]],
+        data=summary_rows,
+        style_header={"backgroundColor": "#8e44ad", "color": "white",
+                      "fontWeight": "bold", "fontSize": "12px", "padding": "8px"},
+        style_cell={"textAlign": "center", "padding": "8px", "fontSize": "12px",
+                    "border": "1px solid #ddd"},
+    )
+
+    # ── Chart: Cumulative Cases ──
+    cases_fig = go.Figure()
+    cases_fig.add_trace(go.Scatter(
+        x=real_days.iloc[:n_days], y=real_cases_pct.iloc[:n_days],
+        mode="lines", name=f"Real ({country_name})",
+        line=dict(color="#2c3e50", width=2.5),
+    ))
+    cases_fig.add_trace(go.Scatter(
+        x=model_days.iloc[:n_days], y=model_cases_pct.iloc[:n_days],
+        mode="lines", name="ABM Simulation",
+        line=dict(color="#e74c3c", width=2.5, dash="dash"),
+    ))
+    cases_fig.update_layout(
+        title={"text": "Cumulative Cases (% of population)", "x": 0.5, "font": {"size": 14}},
+        xaxis_title="Day", yaxis_title="% Population",
+        legend=dict(orientation="h", y=-0.2),
+        margin=dict(l=50, r=10, t=40, b=60),
+    )
+
+    # ── Chart: Cumulative Deaths ──
+    deaths_fig = go.Figure()
+    deaths_fig.add_trace(go.Scatter(
+        x=real_days.iloc[:n_days], y=real_deaths_pct.iloc[:n_days],
+        mode="lines", name=f"Real ({country_name})",
+        line=dict(color="#2c3e50", width=2.5),
+    ))
+    deaths_fig.add_trace(go.Scatter(
+        x=model_days.iloc[:n_days], y=model_deaths_pct.iloc[:n_days],
+        mode="lines", name="ABM Simulation",
+        line=dict(color="#e74c3c", width=2.5, dash="dash"),
+    ))
+    deaths_fig.update_layout(
+        title={"text": "Cumulative Deaths (% of population)", "x": 0.5, "font": {"size": 14}},
+        xaxis_title="Day", yaxis_title="% Population",
+        legend=dict(orientation="h", y=-0.2),
+        margin=dict(l=50, r=10, t=40, b=60),
+    )
+
+    # ── Chart: R0 ──
+    r0_fig = go.Figure()
+    real_r0_clean = real_r0.iloc[:n_days]
+    r0_fig.add_trace(go.Scatter(
+        x=real_days.iloc[:n_days], y=real_r0_clean,
+        mode="lines", name=f"Real ({country_name})",
+        line=dict(color="#2c3e50", width=2.5),
+    ))
+    r0_fig.add_trace(go.Scatter(
+        x=model_days.iloc[:n_days], y=model_r0.iloc[:n_days],
+        mode="lines", name="ABM Simulation",
+        line=dict(color="#e74c3c", width=2.5, dash="dash"),
+    ))
+    r0_fig.add_hline(y=1.0, line_dash="dot", line_color="gray",
+                     annotation_text="R0 = 1")
+    r0_fig.update_layout(
+        title={"text": "Reproduction Number (R0)", "x": 0.5, "font": {"size": 14}},
+        xaxis_title="Day", yaxis_title="R0",
+        legend=dict(orientation="h", y=-0.2),
+        margin=dict(l=50, r=10, t=40, b=60),
+    )
+
+    # ── Chart: Stringency Index (real data only, for context) ──
+    si_fig = go.Figure()
+    si = real_data["stringency_index"]
+    si_fig.add_trace(go.Scatter(
+        x=real_days, y=si,
+        mode="lines", name="Government Stringency Index",
+        line=dict(color="#8e44ad", width=2.5),
+        fill="tozeroy", fillcolor="rgba(142, 68, 173, 0.15)",
+    ))
+    # Threshold annotations
+    si_fig.add_hline(y=60, line_dash="dash", line_color="#e74c3c",
+                     annotation_text="Lockdown threshold (model)")
+    si_fig.add_hline(y=40, line_dash="dash", line_color="#f39c12",
+                     annotation_text="Masks threshold (model)")
+    si_fig.update_layout(
+        title={"text": f"Government Response — {country_name}",
+               "x": 0.5, "font": {"size": 14}},
+        xaxis_title="Day", yaxis_title="Stringency Index (0–100)",
+        yaxis=dict(range=[0, 105]),
+        margin=dict(l=50, r=10, t=40, b=40),
+    )
+
+    # ── Wave label for status ──
+    wave_label = next((k for k, v in WAVES.items() if v == wave_start), wave_start)
+    status = (f"Loaded {n_days} days of real data for {country_name} "
+              f"({wave_label}). Simulation ran with auto-estimated parameters.")
+
+    return params_info, summary, cases_fig, deaths_fig, r0_fig, si_fig, status
 
 
 # ── Entry point ────────────────────────────────────────────────────────
